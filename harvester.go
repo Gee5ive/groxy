@@ -99,7 +99,9 @@ func FreeProxyListDL() ProviderResponse {
 	close(respStream)
 	for result := range respStream {
 		proxies = append(proxies, result.Proxies...)
-		resultErr = multierror.Append(resultErr, result.Err)
+		if resultErr != nil {
+			resultErr = multierror.Append(resultErr, result.Err)
+		}
 	}
 	return ProviderResponse{Proxies: proxies, Err: resultErr}
 }
@@ -180,4 +182,111 @@ func ClarkTMProxy() ProviderResponse {
 		get()
 	}()
 	return <-respStream
+}
+
+func MultiProxy() ProviderResponse {
+	respStream := make(chan ProviderResponse)
+	get := func() {
+		var proxies []*Proxy
+		defer close(respStream)
+		resp, err := getBody("http://multiproxy.org/txt_all/proxy.txt")
+		if err != nil {
+			respStream <- ProviderResponse{Proxies: []*Proxy{}, Err: err}
+			return
+		}
+		for _, value := range strings.Split(resp, "\n") {
+			proxy, err := New(value, "", "")
+			if err != nil {
+				continue
+			}
+			proxies = append(proxies, proxy)
+		}
+		respStream <- ProviderResponse{Proxies: proxies, Err: nil}
+	}
+	go func() {
+		get()
+	}()
+	return <-respStream
+}
+
+func SpysME() ProviderResponse {
+	respStream := make(chan ProviderResponse)
+	parseProxies := func(proxies string) []string {
+		list := strings.Split(proxies, "\n")
+		list = list[4 : len(list)-2]
+		for i, item := range list {
+			list[i] = strings.Fields(item)[0]
+		}
+		return list
+	}
+	get := func() {
+		var proxies []*Proxy
+		defer close(respStream)
+		resp, err := getBody("http://spys.me/proxy.txt")
+		if err != nil {
+			respStream <- ProviderResponse{Proxies: []*Proxy{}, Err: err}
+			return
+		}
+		ips := parseProxies(resp)
+		for _, value := range ips {
+			proxy, err := New(value, "", "")
+			if err != nil {
+				continue
+			}
+			proxies = append(proxies, proxy)
+
+		}
+		respStream <- ProviderResponse{Proxies: proxies, Err: nil}
+	}
+	go func() {
+		get()
+	}()
+	return <-respStream
+}
+
+func ProxyListNET() ProviderResponse {
+	var resultErr error
+	var proxies []*Proxy
+	kinds := []string{"http", "http_highanon"}
+	respStream := make(chan ProviderResponse, len(kinds))
+	get := func(kind string) {
+		var list []*Proxy
+		site := fmt.Sprintf("http://www.proxylists.net/%s.txt", kind)
+
+		bodyString, err := getBody(site)
+		if err != nil {
+			respStream <- ProviderResponse{Proxies: []*Proxy{}, Err: err}
+			return
+		}
+
+		for _, ip := range strings.Fields(bodyString) {
+			proxy, err := New(ip, "", "")
+			if err != nil {
+				continue
+			}
+			list = append(list, proxy)
+		}
+		respStream <- ProviderResponse{Proxies: list, Err: nil}
+
+	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(len(kinds))
+	for _, kind := range kinds {
+		go func(kind string, wg *sync.WaitGroup) {
+			defer wg.Done()
+			get(kind)
+		}(kind, &wg)
+	}
+	wg.Wait()
+
+	close(respStream)
+	for result := range respStream {
+		proxies = append(proxies, result.Proxies...)
+		if resultErr != nil {
+			resultErr = multierror.Append(resultErr, result.Err)
+		}
+
+	}
+	return ProviderResponse{Proxies: proxies, Err: resultErr}
 }
