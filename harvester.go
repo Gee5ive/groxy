@@ -19,7 +19,25 @@ type ProviderResponse struct {
 type Provider func() ProviderResponse
 
 type Harvester struct {
-	sources []Provider
+	providers []Provider
+	proxies   []*Proxy
+}
+
+func NewHarvester(providers ...Provider) *Harvester {
+	return &Harvester{providers: providers}
+}
+
+func (h *Harvester) Harvest() {
+	for _, provider := range h.providers {
+		resp := provider()
+		if resp.Err == nil {
+			h.proxies = append(h.proxies, resp.Proxies...)
+		}
+	}
+}
+
+func (h *Harvester) Proxies() []*Proxy {
+	return h.proxies
 }
 
 func getBody(site string) (string, error) {
