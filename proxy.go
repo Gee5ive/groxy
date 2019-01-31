@@ -11,7 +11,7 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 )
 
-// Proxy represents an http proxy used by accounts for accessing the internet
+// Proxy represents an http proxy used for accessing the internet anonymously
 type Proxy struct {
 	host         string
 	username     string
@@ -29,22 +29,22 @@ func (h *Proxy) Scheme() string {
 	return "http://"
 }
 
-// Host portion of the proxy as a string
+// Host returns the host portion of the proxy as a string
 func (h *Proxy) Host() string {
 	return h.Scheme() + h.host
 }
 
-// Username portion of the proxy if present
+// Username returns the username portion of the proxy if present
 func (h *Proxy) Username() string {
 	return h.username
 }
 
-// Password portion of the proxy if present
+// Password returns the password portion of the proxy if present
 func (h *Proxy) Password() string {
 	return h.password
 }
 
-// ToURL converts the proxy to a *url.URL if possible
+// ToURL converts the proxy to a *url.URL
 func (h *Proxy) ToURL() *url.URL {
 	rsp, _ := url.Parse(h.Host())
 	if len(h.username) > 0 && len(h.password) > 0 {
@@ -58,13 +58,12 @@ func (h *Proxy) Secure() bool {
 	return h.secure
 }
 
-// AsCSV converts the proxy to csv format for saving
+// AsCSV converts the proxy to csv format for saving to disk
 func (h *Proxy) AsCSV() []string {
 	return []string{h.host, h.username, h.password}
 }
 
-// New returns a pointer to a proxy, if the info provided cannot be validated it uses the host machine's preferred
-// outbound ip Address.
+// New returns a pointer to a proxy, if the url provided cannot be parsed it returns an error
 func New(uri string, username string, password string) (*Proxy, error) {
 	_, err := url.Parse("http://" + uri)
 	if err != nil {
@@ -76,6 +75,7 @@ func New(uri string, username string, password string) (*Proxy, error) {
 
 }
 
+// SaveToFile saves a list of proxies to a CSV file
 func SaveToFile(file string, proxies []*Proxy) error {
 	var result error
 	f, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE, 0666)
@@ -93,6 +93,7 @@ func SaveToFile(file string, proxies []*Proxy) error {
 	return result
 }
 
+// FromFile loads a list of proxies from a file on disk, it returns an error if there is a problem parsing the file
 func FromFile(file string) ([]*Proxy, error) {
 	var result error
 	handleErr := func(err error) {

@@ -27,9 +27,9 @@ type Manager struct {
 
 // NewManager constructs a new manager struct, maxConn set the number of connections too use at at time for checking proxies
 // timeout sets the timeout to be used for connections, queryUrl sets the url to be used for testing proxies
-func NewManager(maxConn int, timeout time.Duration, queryUrl string) (*Manager, error) {
+func NewManager(maxConn int, timeout time.Duration, queryURL string) (*Manager, error) {
 	queue := make(chan *Proxy, maxConn)
-	target, err := url.Parse(queryUrl)
+	target, err := url.Parse(queryURL)
 	if err != nil {
 		return nil, err
 	}
@@ -139,54 +139,63 @@ func (m *Manager) Run() {
 	}
 }
 
-func (m *Manager) Proxies() {
-
+// Proxies returns the list of proxies contained in the Manager struct
+func (m *Manager) Proxies() []*Proxy {
+	var list []*Proxy
+	for _, val := range m.outputs {
+		list = append(list, val.Proxy)
+	}
+	return list
 }
 
+// Stop forces the proxy checking process abort
 func (m *Manager) Stop() {
 	m.kill = true
 }
 
+// Predicate represent the different ways to filter a list of proxies
 type Predicate int8
 
 const (
+	// Alive predicate filters the proxies by their alive status
 	Alive Predicate = iota
+	// Secure predicate filters the proxies by their secure status
 	Secure
+	// ResponseTime predicate filters the proxies by a max response time
 	ResponseTime
 )
 
+// Filter sorts proxies by a give Predicate type, if you want to filter by response time, pass the ResponseTime predicate
+// and a time.Duration as the second parameter
 func (m *Manager) Filter(predicate Predicate, time ...time.Duration) []*Proxy {
 	var retList []*Proxy
 	switch predicate {
 	case Secure:
-		for _, res := range m.outputs {
-			if res.Proxy.Secure() {
-				retList = append(retList, res.Proxy)
+		for _, res := range m.Proxies() {
+			if res.Secure() {
+				retList = append(retList, res)
 			}
 		}
 	case Alive:
-		for _, res := range m.outputs {
-			if res.Proxy.alive {
-				retList = append(retList, res.Proxy)
+		for _, res := range m.Proxies() {
+			if res.alive {
+				retList = append(retList, res)
 			}
 		}
 	case ResponseTime:
-		for _, res := range m.outputs {
-			if res.Proxy.responseTime < time[0] {
-				retList = append(retList, res.Proxy)
+		for _, res := range m.Proxies() {
+			if res.responseTime < time[0] {
+				retList = append(retList, res)
 			}
 		}
 	}
 	return retList
 }
 
-func (m *Manager) SortByResponseTime() []*Proxy {
-	var proxies []*Proxy
-	for _, val := range m.outputs {
-		proxies = append(proxies, val.Proxy)
-	}
-	sort.Slice(proxies, func(i, j int) bool {
-		return proxies[i].responseTime < proxies[j].responseTime
+// SortByResponseTime sorts the proxies by their response time in descending order
+func (m *Manager) SortByResponseTime() {
+	sort.Slice(m.Proxies(), func(i, j int) bool {
+		return m.Proxies()[i].responseTime < m.Proxies()[j].responseTime
 	})
-	return proxies
+
 }

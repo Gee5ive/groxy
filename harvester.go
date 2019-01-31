@@ -12,21 +12,30 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 )
 
+// ProviderResponse is a struct returned from a proxy provider function, it contains a list of proxies and a possible error
+// which in some cases may be a github.com/hashicorp/go-multierror
 type ProviderResponse struct {
 	Proxies []*Proxy
 	Err     error
 }
+
+// Provider is any function that can fetch proxies from a remote location, the function returns a provider response
 type Provider func() ProviderResponse
 
+// Harvester is a struct that uses a list of provider functions to harvest proxies and stores the harvested proxies in a slice
 type Harvester struct {
 	providers []Provider
 	proxies   []*Proxy
 }
 
+// NewHarvester constructs a new harvester struct using the list of provider functions passed in as arguments to harvest proxies
+// Use the WithAllProviders function to construct the harvester with all available providers
 func NewHarvester(providers ...Provider) *Harvester {
 	return &Harvester{providers: providers}
 }
 
+// Harvest fetches proxies using the list of providers contained in Harvester's internal providers list
+// The results are stored in the proxies list and can be obtained using the Proxies() method
 func (h *Harvester) Harvest() {
 	for _, provider := range h.providers {
 		resp := provider()
@@ -36,6 +45,7 @@ func (h *Harvester) Harvest() {
 	}
 }
 
+// Proxies returns the list of proxies contained in the Harvester struct
 func (h *Harvester) Proxies() []*Proxy {
 	return h.proxies
 }
@@ -60,7 +70,8 @@ func getBody(site string) (string, error) {
 	return bodyString, nil
 }
 
-func FreeProxyListDL() ProviderResponse {
+// ProxyListDL is a provider which fetches proxies from https://www.proxy-list.download
+func ProxyListDL() ProviderResponse {
 	var resultErr error
 	var proxies []*Proxy
 	kinds := []string{"http", "https"}
@@ -106,8 +117,9 @@ func FreeProxyListDL() ProviderResponse {
 	return ProviderResponse{Proxies: proxies, Err: resultErr}
 }
 
+// FateProxyList is a provider which fetches proxies from https://raw.githubusercontent.com/fate0/proxylist
 func FateProxyList() ProviderResponse {
-	parseJson := func(jsonStr string) []string {
+	parseJSON := func(jsonStr string) []string {
 		type Resp struct {
 			Host string `json:"host"`
 			Port int    `json:"port"`
@@ -133,7 +145,7 @@ func FateProxyList() ProviderResponse {
 			respStream <- ProviderResponse{Proxies: []*Proxy{}, Err: err}
 			return
 		}
-		proxies := parseJson(resp)
+		proxies := parseJSON(resp)
 		for _, proxy := range proxies {
 			host, err := New(proxy, "", "")
 			if err != nil {
@@ -149,6 +161,7 @@ func FateProxyList() ProviderResponse {
 	return <-respStream
 }
 
+// ClarkTMProxy is a provider which fetches proxies from https://raw.githubusercontent.com/clarketm/proxy-list
 func ClarkTMProxy() ProviderResponse {
 	respStream := make(chan ProviderResponse)
 	parseProxies := func(proxies string) []string {
@@ -184,6 +197,7 @@ func ClarkTMProxy() ProviderResponse {
 	return <-respStream
 }
 
+// MultiProxy is a provider which fetches proxies from http://multiproxy.org/
 func MultiProxy() ProviderResponse {
 	respStream := make(chan ProviderResponse)
 	get := func() {
@@ -209,6 +223,7 @@ func MultiProxy() ProviderResponse {
 	return <-respStream
 }
 
+// SpysME is a provider which fetches proxies from http://spys.me/
 func SpysME() ProviderResponse {
 	respStream := make(chan ProviderResponse)
 	parseProxies := func(proxies string) []string {
@@ -244,6 +259,7 @@ func SpysME() ProviderResponse {
 	return <-respStream
 }
 
+// ProxyListNET is a provider which fetches proxies from http://www.proxylists.net/
 func ProxyListNET() ProviderResponse {
 	var resultErr error
 	var proxies []*Proxy
@@ -289,4 +305,9 @@ func ProxyListNET() ProviderResponse {
 
 	}
 	return ProviderResponse{Proxies: proxies, Err: resultErr}
+}
+
+// WithAllProviders is a simple utility function which is used to pass all provider functions to the NewHarvester constructor
+func WithAllProviders() []Provider {
+	return []Provider{ProxyListNET, SpysME, MultiProxy, ClarkTMProxy, FateProxyList, ProxyListDL}
 }
