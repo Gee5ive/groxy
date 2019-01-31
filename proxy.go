@@ -44,6 +44,11 @@ func (h *Proxy) Password() string {
 	return h.password
 }
 
+// Alive returns whether or not the proxy is dead
+func (h *Proxy) Alive() bool {
+	return h.alive
+}
+
 // ToURL converts the proxy to a *url.URL
 func (h *Proxy) ToURL() *url.URL {
 	rsp, _ := url.Parse(h.Host())

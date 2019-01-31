@@ -1,41 +1,25 @@
 package groxy
 
 import (
-	"net/http"
+	"errors"
 	"reflect"
 	"testing"
 	"time"
 )
 
-func TestNewManager(t *testing.T) {
-	type args struct {
-		maxConn  int
-		timeout  time.Duration
-		queryURL string
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    *Manager
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewManager(tt.args.maxConn, tt.args.timeout, tt.args.queryURL)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("NewManager() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewManager() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
+var manager, _ = NewManager(4, time.Second*1, "http://google.com")
 
 func TestManager_Distinct(t *testing.T) {
+	makeDuplicates := func() []*Proxy {
+		var proxies []*Proxy
+		hosts := []string{"5.135.164.72:3128", "178.128.21.47:3128", "46.105.190.37:3128", "157.230.44.89:3128", "138.201.223.250:31288",
+			"5.135.164.72:3128", "178.128.21.47:3128", "178.128.21.47:3128", "157.230.44.89:3128"}
+		for _, host := range hosts {
+			proxy, _ := New(host, "", "")
+			proxies = append(proxies, proxy)
+		}
+		return proxies
+	}
 	type args struct {
 		proxies []*Proxy
 	}
@@ -45,45 +29,20 @@ func TestManager_Distinct(t *testing.T) {
 		args args
 		want []*Proxy
 	}{
-		// TODO: Add test cases.
+		{name: "Should not return a list with any duplicate proxies", args: args{proxies: makeDuplicates()}, m: manager, want: makeProxies()},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.m.Distinct(tt.args.proxies); !reflect.DeepEqual(got, tt.want) {
+			if got := tt.m.Distinct(tt.args.proxies); !reflect.DeepEqual(len(got), len(tt.want)) {
 				t.Errorf("Manager.Distinct() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestManager_doRequest(t *testing.T) {
-	type args struct {
-		proxy *Proxy
-	}
-	tests := []struct {
-		name    string
-		m       *Manager
-		args    args
-		want    *http.Response
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := tt.m.doRequest(tt.args.proxy)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Manager.doRequest() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Manager.doRequest() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestManager_checkProxy(t *testing.T) {
+	badProxy, _ := New("118.175.93.68:38176", "", "")
+	myErr := errors.New("error")
 	type args struct {
 		proxy *Proxy
 	}
@@ -93,70 +52,13 @@ func TestManager_checkProxy(t *testing.T) {
 		args args
 		want TestResult
 	}{
-		// TODO: Add test cases.
+		{name: "Dead proxies should not be marked as alive", m: manager, args: args{proxy: badProxy}, want: TestResult{Err: myErr, Proxy: badProxy}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.m.checkProxy(tt.args.proxy); !reflect.DeepEqual(got, tt.want) {
+			if got := tt.m.checkProxy(tt.args.proxy); !reflect.DeepEqual(got.Proxy.Alive(), tt.want.Proxy.Alive()) {
 				t.Errorf("Manager.checkProxy() = %v, want %v", got, tt.want)
 			}
-		})
-	}
-}
-
-func TestManager_checkIsSecure(t *testing.T) {
-	type args struct {
-		proxy *Proxy
-	}
-	tests := []struct {
-		name string
-		m    *Manager
-		args args
-		want bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.m.checkIsSecure(tt.args.proxy); got != tt.want {
-				t.Errorf("Manager.checkIsSecure() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestManager_getToken(t *testing.T) {
-	type args struct {
-		proxy *Proxy
-	}
-	tests := []struct {
-		name string
-		m    *Manager
-		args args
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.m.getToken(tt.args.proxy)
-		})
-	}
-}
-
-func TestManager_releaseToken(t *testing.T) {
-	type args struct {
-		proxy *Proxy
-	}
-	tests := []struct {
-		name string
-		m    *Manager
-		args args
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.m.releaseToken(tt.args.proxy)
 		})
 	}
 }
