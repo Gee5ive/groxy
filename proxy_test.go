@@ -12,7 +12,8 @@ func TestProxy_Scheme(t *testing.T) {
 		h    *Proxy
 		want string
 	}{
-		// TODO: Add test cases.
+		{name: "Proxy that is not secure should have http:// scheme", h: &Proxy{host: "159.89.46.56:3128"}, want: "http://"},
+		{name: "Proxy that is not secure should have https:// scheme", h: &Proxy{host: "159.89.46.56:3128", secure: true}, want: "https://"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -23,64 +24,15 @@ func TestProxy_Scheme(t *testing.T) {
 	}
 }
 
-func TestProxy_Host(t *testing.T) {
-	tests := []struct {
-		name string
-		h    *Proxy
-		want string
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.h.Host(); got != tt.want {
-				t.Errorf("Proxy.Host() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestProxy_Username(t *testing.T) {
-	tests := []struct {
-		name string
-		h    *Proxy
-		want string
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.h.Username(); got != tt.want {
-				t.Errorf("Proxy.Username() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestProxy_Password(t *testing.T) {
-	tests := []struct {
-		name string
-		h    *Proxy
-		want string
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.h.Password(); got != tt.want {
-				t.Errorf("Proxy.Password() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestProxy_ToURL(t *testing.T) {
+	expected, _ := url.Parse("http://username:password@159.89.46.56:3128")
 	tests := []struct {
 		name string
 		h    *Proxy
 		want *url.URL
 	}{
-		// TODO: Add test cases.
+		{name: "Should Return properly formatted url", h: &Proxy{host: "159.89.46.56:3128", password: "password", username: "username"},
+			want: expected},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -91,68 +43,15 @@ func TestProxy_ToURL(t *testing.T) {
 	}
 }
 
-func TestProxy_Secure(t *testing.T) {
-	tests := []struct {
-		name string
-		h    *Proxy
-		want bool
-	}{
-		// TODO: Add test cases.
+func makeProxies() []*Proxy {
+	var proxies []*Proxy
+	hosts := []string{"5.135.164.72:3128", "178.128.21.47:3128", "46.105.190.37:3128", "157.230.44.89:3128", "138.201.223.250:31288"}
+	for _, host := range hosts {
+		proxy, _ := New(host, "", "")
+		proxies = append(proxies, proxy)
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.h.Secure(); got != tt.want {
-				t.Errorf("Proxy.Secure() = %v, want %v", got, tt.want)
-			}
-		})
-	}
+	return proxies
 }
-
-func TestProxy_AsCSV(t *testing.T) {
-	tests := []struct {
-		name string
-		h    *Proxy
-		want []string
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.h.AsCSV(); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Proxy.AsCSV() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestNew(t *testing.T) {
-	type args struct {
-		uri      string
-		username string
-		password string
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    *Proxy
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := New(tt.args.uri, tt.args.username, tt.args.password)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("New() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("New() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestSaveToFile(t *testing.T) {
 	type args struct {
 		file    string
@@ -163,7 +62,7 @@ func TestSaveToFile(t *testing.T) {
 		args    args
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{name: "SaveToFile Should save the given list of proxies to a csv file", args: args{file: "test.csv", proxies: makeProxies()}, wantErr: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -184,7 +83,7 @@ func TestFromFile(t *testing.T) {
 		want    []*Proxy
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{name: "FromFile Should return the given list of proxies from said file", args: args{file: "test.csv"}, want: makeProxies(), wantErr: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

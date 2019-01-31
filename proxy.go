@@ -83,13 +83,14 @@ func SaveToFile(file string, proxies []*Proxy) error {
 		return err
 	}
 	writer := csv.NewWriter(bufio.NewWriter(f))
-	defer writer.Flush()
+
 	defer f.Close()
 	for _, proxy := range proxies {
 		if err := writer.Write(proxy.AsCSV()); err != nil {
 			result = multierror.Append(result, err)
 		}
 	}
+	writer.Flush()
 	return result
 }
 
