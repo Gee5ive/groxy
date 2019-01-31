@@ -53,10 +53,12 @@ func (h *Proxy) ToURL() *url.URL {
 	return rsp
 }
 
+// Secure identifies whether or not the proxy is secure
 func (h *Proxy) Secure() bool {
 	return h.secure
 }
 
+// AsCSV converts the proxy to csv format for saving
 func (h *Proxy) AsCSV() []string {
 	return []string{h.host, h.username, h.password}
 }
