@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 )
 
 // Proxy represents an http proxy used for accessing the internet anonymously
@@ -154,4 +154,15 @@ func FromFile(file string) ([]*Proxy, error) {
 	}
 
 	return proxies, result
+}
+
+// FromExisting returns a proxy from an existing  proxy that was used with this package, normally a database
+func FromExisting(host string,
+	username string,
+	password string,
+	secure bool,
+	responseTime time.Duration,
+	alive bool) *Proxy {
+	return &Proxy{host: host, username: username, password: password, secure: secure, responseTime: responseTime, alive: alive}
+
 }
