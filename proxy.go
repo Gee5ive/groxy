@@ -89,7 +89,7 @@ func (h *Proxy) Secure() bool {
 
 // AsCSV converts the proxy to csv format for saving to disk
 func (h *Proxy) AsCSV() []string {
-	return []string{h.id.String(), h.host, h.username, h.password}
+	return []string{h.host, h.username, h.password}
 }
 
 // New returns a pointer to a proxy, if the url provided cannot be parsed it returns an error
@@ -99,7 +99,7 @@ func New(uri string, username string, password string) (*Proxy, error) {
 		return nil, err
 
 	}
-	proxy := Proxy{host: uri, username: username, password: password}
+	proxy := Proxy{id: NewID(), host: uri, username: username, password: password}
 	return &proxy, nil
 
 }
