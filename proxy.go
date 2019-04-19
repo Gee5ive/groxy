@@ -3,22 +3,40 @@ package groxy
 import (
 	"bufio"
 	"encoding/csv"
+	"github.com/google/uuid"
+	"github.com/hashicorp/go-multierror"
 	"io"
 	"net/url"
 	"os"
 	"time"
-
-	"github.com/hashicorp/go-multierror"
 )
+
+// ID is a uuid used to distinguish between objects in the system
+type ID = uuid.UUID
+
+// NewID returns an ID instance
+func NewID() ID {
+	return ID(uuid.New())
+}
+
+// IDFromString transforms a string to an ID
+func IDFromString(id string) ID {
+	return ID(uuid.MustParse(id))
+}
 
 // Proxy represents an http proxy used for accessing the internet anonymously
 type Proxy struct {
+	id           ID
 	host         string
 	username     string
 	password     string
 	secure       bool
 	responseTime time.Duration
 	alive        bool
+}
+
+func (h *Proxy) Id() string {
+	return h.id.String()
 }
 
 // Scheme returns the scheme used for the proxy, if it has been tested and is secure, the scheme will be https
@@ -70,7 +88,7 @@ func (h *Proxy) Secure() bool {
 
 // AsCSV converts the proxy to csv format for saving to disk
 func (h *Proxy) AsCSV() []string {
-	return []string{h.host, h.username, h.password}
+	return []string{h.id.String(), h.host, h.username, h.password}
 }
 
 // New returns a pointer to a proxy, if the url provided cannot be parsed it returns an error
