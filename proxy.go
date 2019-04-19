@@ -3,12 +3,13 @@ package groxy
 import (
 	"bufio"
 	"encoding/csv"
-	"github.com/google/uuid"
-	"github.com/hashicorp/go-multierror"
 	"io"
 	"net/url"
 	"os"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/hashicorp/go-multierror"
 )
 
 // ID is a uuid used to distinguish between objects in the system
@@ -175,12 +176,14 @@ func FromFile(file string) ([]*Proxy, error) {
 }
 
 // FromExisting returns a proxy from an existing  proxy that was used with this package, normally a database
-func FromExisting(host string,
+func FromExisting(
+	id string,
+	host string,
 	username string,
 	password string,
 	secure bool,
 	responseTime time.Duration,
 	alive bool) *Proxy {
-	return &Proxy{host: host, username: username, password: password, secure: secure, responseTime: responseTime, alive: alive}
+	return &Proxy{id: IDFromString(id), host: host, username: username, password: password, secure: secure, responseTime: responseTime, alive: alive}
 
 }
