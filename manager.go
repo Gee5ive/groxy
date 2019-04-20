@@ -33,10 +33,10 @@ func NewManager(maxConn int, timeout time.Duration, queryURL string) (*Manager, 
 	if err != nil {
 		return nil, err
 	}
-	return &Manager{queue: queue, timeout: timeout, queryURL: target, kill: false}, nil
+	return &Manager{queue: queue, timeout: timeout, queryURL: target, inputs: []*Proxy{}, kill: false}, nil
 }
 
-// Distinct removes all duplicate proxies for a list
+// Distinct removes all duplicate proxies from a list
 func (m *Manager) Distinct(proxies []*Proxy) []*Proxy {
 	keys := make(map[string]bool)
 	var list []*Proxy
@@ -74,7 +74,8 @@ func (m *Manager) checkProxy(proxy *Proxy) TestResult {
 	resp, err := m.doRequest(proxy)
 	if err != nil {
 
-		result = TestResult{Err: err, Proxy: proxy}
+		return TestResult{Err: err, Proxy: proxy}
+
 	}
 	if resp != nil && resp.Status == "200 OK" {
 		go func() {
@@ -137,6 +138,24 @@ func (m *Manager) Run() {
 			return
 		}
 	}
+	m.inputs = []*Proxy{}
+}
+
+// RunStreaming returns the channel of results
+func (m *Manager) RunStreaming() <-chan *Proxy {
+	res := make(chan *Proxy, len(m.inputs))
+	defer close(res)
+	for _, inp := range m.inputs {
+		if !m.kill {
+			go func(proxy *Proxy) {
+				res <- m.checkProxy(proxy).Proxy
+			}(inp)
+		} else {
+			return res
+		}
+	}
+	m.inputs = []*Proxy{}
+	return res
 }
 
 // Proxies returns the list of proxies contained in the Manager struct
