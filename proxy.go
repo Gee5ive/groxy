@@ -22,6 +22,9 @@ func NewID() ID {
 
 // IDFromString transforms a string to an ID
 func IDFromString(id string) ID {
+	if id == "" {
+		return NewID()
+	}
 	return ID(uuid.MustParse(id))
 }
 
