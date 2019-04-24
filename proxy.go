@@ -17,15 +17,14 @@ type ID = uuid.UUID
 
 // NewID returns an ID instance
 func NewID() ID {
-	return ID(uuid.New())
+	return uuid.New()
 }
 
-// IDFromString transforms a string to an ID
 func IDFromString(id string) ID {
 	if id == "" {
 		return NewID()
 	}
-	return ID(uuid.MustParse(id))
+	return uuid.MustParse(id)
 }
 
 // Proxy represents an http proxy used for accessing the internet anonymously
