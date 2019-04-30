@@ -39,6 +39,9 @@ type Proxy struct {
 }
 
 func (h *Proxy) Id() string {
+	if h == nil {
+	return ""
+	}
 	return h.id.String()
 }
 
