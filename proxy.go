@@ -30,42 +30,43 @@ func IDFromString(id string) ID {
 // Proxy represents an http proxy used for accessing the internet anonymously
 type Proxy struct {
 	id           ID
-	host         string
-	username     string
-	password     string
-	secure       bool
+	url          *url.URL
+	https        bool
 	responseTime time.Duration
+	transParent  bool
 	alive        bool
 }
 
 func (h *Proxy) Id() string {
 	if h == nil {
-	return ""
+		return ""
 	}
 	return h.id.String()
 }
 
-// Scheme returns the scheme used for the proxy, if it has been tested and is secure, the scheme will be https
+// Scheme returns the scheme used for the proxy, if it has been tested and is https, the scheme will be https
 func (h *Proxy) Scheme() string {
-	if h.Secure() {
-		return "https://"
-	}
-	return "http://"
+	return h.url.Scheme
 }
 
 // Host returns the host portion of the proxy as a string
 func (h *Proxy) Host() string {
-	return h.Scheme() + h.host
+	return h.url.Host
+}
+
+func (h *Proxy) IsAnon() bool {
+	return h.transParent
 }
 
 // Username returns the username portion of the proxy if present
 func (h *Proxy) Username() string {
-	return h.username
+	return h.url.User.String()
 }
 
 // Password returns the password portion of the proxy if present
 func (h *Proxy) Password() string {
-	return h.password
+	pass, _ := h.url.User.Password()
+	return pass
 }
 
 // Alive returns whether or not the proxy is dead
@@ -80,32 +81,27 @@ func (h *Proxy) ResponseTime() time.Duration {
 
 // ToURL converts the proxy to a *url.URL
 func (h *Proxy) ToURL() *url.URL {
-	rsp, _ := url.Parse(h.Host())
-	if len(h.username) > 0 && len(h.password) > 0 {
-		rsp.User = url.UserPassword(h.username, h.password)
-	}
-	return rsp
+	return h.url
 }
 
-// Secure identifies whether or not the proxy is secure
-func (h *Proxy) Secure() bool {
-	return h.secure
+// Secure identifies whether or not the proxy is https
+func (h *Proxy) HTTPS() bool {
+	return h.https
 }
 
 // AsCSV converts the proxy to csv format for saving to disk
 func (h *Proxy) AsCSV() []string {
-	return []string{h.host, h.username, h.password}
+	return []string{h.Host(), h.Username(), h.Password()}
 }
 
 // New returns a pointer to a proxy, if the url provided cannot be parsed it returns an error
-func New(uri string, username string, password string) (*Proxy, error) {
-	_, err := url.Parse("http://" + uri)
-	if err != nil {
-		return nil, err
-
+func New(uri string, username string, password string) *Proxy {
+	url2 := &url.URL{Host: uri}
+	if len(username) > 0 && len(password) > 0 {
+		url2.User = url.UserPassword(username, password)
 	}
-	proxy := Proxy{id: NewID(), host: uri, username: username, password: password}
-	return &proxy, nil
+	proxy := Proxy{id: NewID(), url: url2}
+	return &proxy
 
 }
 
@@ -131,11 +127,6 @@ func SaveToFile(file string, proxies []*Proxy) error {
 // FromFile loads a list of proxies from a file on disk, it returns an error if there is a problem parsing the file
 func FromFile(file string) ([]*Proxy, error) {
 	var result error
-	handleErr := func(err error) {
-		if err != nil {
-			result = multierror.Append(result, err)
-		}
-	}
 	f, err := os.Open(file)
 	if err != nil {
 		return []*Proxy{}, err
@@ -155,23 +146,14 @@ func FromFile(file string) ([]*Proxy, error) {
 		case 0:
 			continue
 		case 1:
-			proxy, err := New(line[0], "", "")
-			if err != nil {
-				handleErr(err)
-			}
+			proxy := New(line[0], "", "")
 			proxies = append(proxies, proxy)
 		case 2:
-			proxy, err := New(line[0], line[1], "")
-			if err != nil {
-				handleErr(err)
-			}
+			proxy := New(line[0], line[1], "")
 			proxies = append(proxies, proxy)
 
 		case 3:
-			proxy, err := New(line[0], line[1], line[2])
-			if err != nil {
-				handleErr(err)
-			}
+			proxy := New(line[0], line[1], line[2])
 			proxies = append(proxies, proxy)
 		}
 
@@ -186,9 +168,11 @@ func FromExisting(
 	host string,
 	username string,
 	password string,
-	secure bool,
+	https bool,
 	responseTime time.Duration,
 	alive bool) *Proxy {
-	return &Proxy{id: IDFromString(id), host: host, username: username, password: password, secure: secure, responseTime: responseTime, alive: alive}
+	uri := &url.URL{Host: host}
+	uri.User = url.UserPassword(username, password)
+	return &Proxy{id: IDFromString(id), url: uri, https: https, responseTime: responseTime, alive: alive}
 
 }

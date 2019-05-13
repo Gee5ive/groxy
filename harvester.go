@@ -87,10 +87,8 @@ func ProxyListDL() ProviderResponse {
 		}
 
 		for _, ip := range strings.Fields(bodyString) {
-			proxy, err := New(ip, "", "")
-			if err != nil {
-				continue
-			}
+			proxy := New(ip, "", "")
+
 			list = append(list, proxy)
 		}
 		respStream <- ProviderResponse{Proxies: list, Err: nil}
@@ -110,7 +108,7 @@ func ProxyListDL() ProviderResponse {
 	close(respStream)
 	for result := range respStream {
 		proxies = append(proxies, result.Proxies...)
-		if resultErr != nil {
+		if result.Err != nil {
 			resultErr = multierror.Append(resultErr, result.Err)
 		}
 	}
@@ -147,10 +145,7 @@ func FateProxyList() ProviderResponse {
 		}
 		proxies := parseJSON(resp)
 		for _, proxy := range proxies {
-			host, err := New(proxy, "", "")
-			if err != nil {
-				continue
-			}
+			host := New(proxy, "", "")
 			list = append(list, host)
 		}
 		respStream <- ProviderResponse{Proxies: list, Err: nil}
@@ -182,10 +177,7 @@ func ClarkTMProxy() ProviderResponse {
 		}
 		ips := parseProxies(resp)
 		for _, value := range ips {
-			proxy, err := New(value, "", "")
-			if err != nil {
-				continue
-			}
+			proxy := New(value, "", "")
 			proxies = append(proxies, proxy)
 
 		}
@@ -209,10 +201,7 @@ func MultiProxy() ProviderResponse {
 			return
 		}
 		for _, value := range strings.Split(resp, "\n") {
-			proxy, err := New(value, "", "")
-			if err != nil {
-				continue
-			}
+			proxy := New(value, "", "")
 			proxies = append(proxies, proxy)
 		}
 		respStream <- ProviderResponse{Proxies: proxies, Err: nil}
@@ -244,10 +233,8 @@ func SpysME() ProviderResponse {
 		}
 		ips := parseProxies(resp)
 		for _, value := range ips {
-			proxy, err := New(value, "", "")
-			if err != nil {
-				continue
-			}
+			proxy := New(value, "", "")
+
 			proxies = append(proxies, proxy)
 
 		}
@@ -276,10 +263,8 @@ func ProxyListNET() ProviderResponse {
 		}
 
 		for _, ip := range strings.Fields(bodyString) {
-			proxy, err := New(ip, "", "")
-			if err != nil {
-				continue
-			}
+			proxy := New(ip, "", "")
+
 			list = append(list, proxy)
 		}
 		respStream <- ProviderResponse{Proxies: list, Err: nil}
@@ -299,7 +284,7 @@ func ProxyListNET() ProviderResponse {
 	close(respStream)
 	for result := range respStream {
 		proxies = append(proxies, result.Proxies...)
-		if resultErr != nil {
+		if result.Err != nil {
 			resultErr = multierror.Append(resultErr, result.Err)
 		}
 

@@ -1,12 +1,17 @@
 package groxy
 
 import (
-	"context"
+	ctx "context"
+	"io/ioutil"
 	"net/http"
 	"net/url"
-	"sort"
 	"time"
+
+	"github.com/gammazero/workerpool"
 )
+
+const ipCheckAddr = `https://ip4.seeip.org`
+const proxyAnonCheckAddr = `http://bot.whatismyipaddress.com`
 
 // TestResult represents the result of running a test on the given proxy
 type TestResult struct {
@@ -17,23 +22,24 @@ type TestResult struct {
 // Manager struct controls af the methods used for operating on proxy lists, such as checking validity, response time,
 // sorting, and filtering
 type Manager struct {
-	queue    chan *Proxy
+	pool     *workerpool.WorkerPool
 	timeout  time.Duration
 	queryURL *url.URL
 	inputs   []*Proxy
-	outputs  []TestResult
-	kill     bool
+	ctx      ctx.Context
+	done     ctx.CancelFunc
+	realIPs  []string
 }
 
 // NewManager constructs a new manager struct, maxConn set the number of connections too use at at time for checking proxies
 // timeout sets the timeout to be used for connections, queryUrl sets the url to be used for testing proxies
 func NewManager(maxConn int, timeout time.Duration, queryURL string) (*Manager, error) {
-	queue := make(chan *Proxy, maxConn)
 	target, err := url.Parse(queryURL)
 	if err != nil {
 		return nil, err
 	}
-	return &Manager{queue: queue, timeout: timeout, queryURL: target, inputs: []*Proxy{}, kill: false}, nil
+	proxyCtx, cancel := ctx.WithCancel(ctx.Background())
+	return &Manager{pool: workerpool.New(maxConn), timeout: timeout, queryURL: target, inputs: []*Proxy{}, ctx: proxyCtx, done: cancel, realIPs: GetIPs()}, nil
 }
 
 // Distinct removes all duplicate proxies from a list
@@ -50,72 +56,117 @@ func (m *Manager) Distinct(proxies []*Proxy) []*Proxy {
 }
 
 func (m *Manager) doRequest(proxy *Proxy) (*http.Response, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), m.timeout)
-	defer cancel()
+
 	client := &http.Client{
+		Timeout: m.timeout,
 		Transport: &http.Transport{
 			DisableKeepAlives: true,
 			Proxy:             http.ProxyURL(proxy.ToURL()),
 		},
 	}
-	req, _ := http.NewRequest("HEAD", m.queryURL.String(), nil)
-	req = req.WithContext(ctx)
-	return client.Do(req)
+	req, _ := http.NewRequest("GET", m.queryURL.String(), nil)
+	req.Close = true
+	resp, err := client.Do(req)
+	return resp, err
 }
 
+func getIPV4() string {
+	var bodyString string
+	resp, err := http.Get(ipCheckAddr)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusOK {
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return ""
+		}
+		bodyString = string(bodyBytes)
+	}
+	return bodyString
+}
+
+func getIPV6() string {
+	var bodyString string
+	resp, err := http.Get(ipCheckAddr)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusOK {
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return ""
+		}
+		bodyString = string(bodyBytes)
+	}
+	return bodyString
+}
+func GetIPs() []string {
+	var r []string
+
+	ips := []string{getIPV4(), getIPV6()}
+	for _, ip := range ips {
+		if ip != "" {
+			r = append(r, ip)
+		}
+	}
+	return r
+}
+func (m *Manager) isAnon(proxy *Proxy) bool {
+
+	client := &http.Client{
+		Timeout: time.Second * 3,
+		Transport: &http.Transport{
+			DisableKeepAlives: true,
+			Proxy:             http.ProxyURL(proxy.ToURL()),
+		},
+	}
+	req, _ := http.NewRequest("GET", proxyAnonCheckAddr, nil)
+	req.Close = true
+	resp, err := client.Do(req)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	var bodyString string
+	if resp.StatusCode == http.StatusOK {
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return false
+		}
+		bodyString = string(bodyBytes)
+	}
+
+	for _, ip := range m.realIPs {
+		if ip == bodyString {
+			return false
+		}
+	}
+	return true
+
+}
 func (m *Manager) checkProxy(proxy *Proxy) TestResult {
-	m.getToken(proxy)
-	defer m.releaseToken(proxy)
-	isSecure := make(chan bool, 1)
 	var result TestResult
-	var resultProxy *Proxy
+	resultProxy := &Proxy{}
 
 	t0 := time.Now()
 	resp, err := m.doRequest(proxy)
 	if err != nil {
-
 		return TestResult{Err: err, Proxy: proxy}
 
 	}
 	if resp != nil && resp.Status == "200 OK" {
-		go func() {
-			defer close(isSecure)
-			isSecure <- m.checkIsSecure(proxy)
-		}()
+		anon := m.isAnon(proxy)
 		resultProxy.responseTime = time.Since(t0)
 		resultProxy.alive = true
-		resultProxy.username = proxy.Username()
-		resultProxy.password = proxy.Password()
-		resultProxy.secure = <-isSecure
-		resultProxy.host = proxy.Host()
+		resultProxy.url = proxy.ToURL()
+		resultProxy.transParent = anon
+		resultProxy.url.User = url.UserPassword(proxy.Username(), proxy.Password())
 		result = TestResult{Err: nil, Proxy: resultProxy}
 	}
 	return result
-}
-func (m *Manager) checkIsSecure(proxy *Proxy) bool {
-	m.getToken(proxy)
-	defer m.releaseToken(proxy)
-	addr := proxy.ToURL()
-	addr.Scheme = "https://"
-	ctx, cancel := context.WithTimeout(context.Background(), m.timeout)
-	defer cancel()
-	client := &http.Client{
-		Transport: &http.Transport{
-			DisableKeepAlives: true,
-			Proxy:             http.ProxyURL(addr),
-		},
-	}
-	req, _ := http.NewRequest("HEAD", m.queryURL.String(), nil)
-	req = req.WithContext(ctx)
-	_, err := client.Do(req)
-	return err == nil
-}
-func (m *Manager) getToken(proxy *Proxy) {
-	m.queue <- proxy
-}
-
-func (m *Manager) releaseToken(proxy *Proxy) {
-	<-m.queue
 }
 
 // Add adds a list of proxies to the manager for checking
@@ -124,97 +175,29 @@ func (m *Manager) Add(proxies ...*Proxy) {
 }
 
 // Run starts the proxy checking process
-func (m *Manager) Run() {
-	res := make(chan TestResult, len(m.inputs))
-	defer close(res)
-	results := res
-	for _, inp := range m.inputs {
-		if !m.kill {
-			go func(proxy *Proxy) {
-				results <- m.checkProxy(proxy)
-			}(inp)
-			m.outputs = append(m.outputs, <-results)
-		} else {
-			return
+func (m *Manager) Run() <-chan TestResult {
+	results := make(chan TestResult)
+	go func() {
+		defer close(results)
+		for _, proxy := range m.inputs {
+			check := func(prox *Proxy) func() {
+				return func() {
+					results <- m.checkProxy(prox)
+				}
+			}
+			m.pool.Submit(check(proxy))
 		}
-	}
-	m.inputs = []*Proxy{}
-}
+		m.pool.StopWait()
+	}()
 
-// RunStreaming returns the channel of results
-func (m *Manager) RunStreaming() <-chan *Proxy {
-	res := make(chan *Proxy, len(m.inputs))
-	defer close(res)
-	for _, inp := range m.inputs {
-		if !m.kill {
-			go func(proxy *Proxy) {
-				res <- m.checkProxy(proxy).Proxy
-			}(inp)
-		} else {
-			return res
-		}
-	}
-	m.inputs = []*Proxy{}
-	return res
-}
-
-// Proxies returns the list of proxies contained in the Manager struct
-func (m *Manager) Proxies() []*Proxy {
-	var list []*Proxy
-	for _, val := range m.outputs {
-		list = append(list, val.Proxy)
-	}
-	return list
+	return results
 }
 
 // Stop forces the proxy checking process abort
 func (m *Manager) Stop() {
-	m.kill = true
+	m.done()
 }
 
-// Predicate represent the different ways to filter a list of proxies
-type Predicate int8
-
-const (
-	// Alive predicate filters the proxies by their alive status
-	Alive Predicate = iota
-	// Secure predicate filters the proxies by their secure status
-	Secure
-	// ResponseTime predicate filters the proxies by a max response time
-	ResponseTime
-)
-
-// Filter sorts proxies by a give Predicate type, if you want to filter by response time, pass the ResponseTime predicate
-// and a time.Duration as the second parameter
-func (m *Manager) Filter(predicate Predicate, time ...time.Duration) []*Proxy {
-	var retList []*Proxy
-	switch predicate {
-	case Secure:
-		for _, res := range m.Proxies() {
-			if res.Secure() {
-				retList = append(retList, res)
-			}
-		}
-	case Alive:
-		for _, res := range m.Proxies() {
-			if res.alive {
-				retList = append(retList, res)
-			}
-		}
-	case ResponseTime:
-		for _, res := range m.Proxies() {
-			if res.responseTime < time[0] {
-				retList = append(retList, res)
-			}
-		}
-	}
-	return retList
-}
-
-// SortByResponseTime sorts the proxies by their response time in descending order
-func (m *Manager) SortByResponseTime() {
-	sort.Slice(m.Proxies(), func(i, j int) bool {
-		return m.Proxies()[i].responseTime < m.Proxies()[j].responseTime
-	})
-
+func (m *Manager) Inputs() []*Proxy {
+	return m.inputs
 }
