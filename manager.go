@@ -3,6 +3,7 @@ package groxy
 import (
 	ctx "context"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"time"
@@ -22,24 +23,36 @@ type TestResult struct {
 // Manager struct controls af the methods used for operating on proxy lists, such as checking validity, response time,
 // sorting, and filtering
 type Manager struct {
-	pool     *workerpool.WorkerPool
-	timeout  time.Duration
-	queryURL *url.URL
-	inputs   []*Proxy
-	ctx      ctx.Context
-	done     ctx.CancelFunc
-	realIPs  []string
+	pool       *workerpool.WorkerPool
+	timeout    time.Duration
+	queryURL   *url.URL
+	inputs     []*Proxy
+	ctx        ctx.Context
+	done       ctx.CancelFunc
+	realIPs    []string
+	userRandom bool
 }
 
 // NewManager constructs a new manager struct, maxConn set the number of connections too use at at time for checking proxies
 // timeout sets the timeout to be used for connections, queryUrl sets the url to be used for testing proxies
-func NewManager(maxConn int, timeout time.Duration, queryURL string) (*Manager, error) {
-	target, err := url.Parse(queryURL)
-	if err != nil {
-		return nil, err
-	}
+func NewManager(maxConn int, timeout time.Duration, queryURL string) *Manager {
 	proxyCtx, cancel := ctx.WithCancel(ctx.Background())
-	return &Manager{pool: workerpool.New(maxConn), timeout: timeout, queryURL: target, inputs: []*Proxy{}, ctx: proxyCtx, done: cancel, realIPs: GetIPs()}, nil
+	manager := &Manager{pool: workerpool.New(maxConn), timeout: timeout, inputs: []*Proxy{}, ctx: proxyCtx, done: cancel, realIPs: GetIPs()}
+	target, err := url.Parse(queryURL)
+	if err != nil || queryURL == "" {
+		manager.userRandom = true
+		return manager
+	}
+	manager.queryURL = target
+	return manager
+}
+
+// randomTarget returns a random url to check a proxy response
+func randomTarget() string {
+	source := rand.NewSource(time.Now().UnixNano())
+	r := rand.New(source)
+	return pages[r.Intn(len(pages)-1)]
+
 }
 
 // Distinct removes all duplicate proxies from a list
@@ -56,7 +69,12 @@ func (m *Manager) Distinct(proxies []*Proxy) []*Proxy {
 }
 
 func (m *Manager) doRequest(proxy *Proxy) (*http.Response, error) {
-
+	var queryURL string
+	if m.userRandom {
+		queryURL = randomTarget()
+	} else {
+		queryURL = m.queryURL.String()
+	}
 	client := &http.Client{
 		Timeout: m.timeout,
 		Transport: &http.Transport{
@@ -64,7 +82,7 @@ func (m *Manager) doRequest(proxy *Proxy) (*http.Response, error) {
 			Proxy:             http.ProxyURL(proxy.ToURL()),
 		},
 	}
-	req, _ := http.NewRequest("GET", m.queryURL.String(), nil)
+	req, _ := http.NewRequest("GET", queryURL, nil)
 	req.Close = true
 	resp, err := client.Do(req)
 	return resp, err
