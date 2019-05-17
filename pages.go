@@ -27,4 +27,11 @@ var pages []string = []string{"https://play.golang.org", "https://www.proxy-chec
 	"https://www.pinkvilla.com/", "https://www.thehollywoodgossip.com/", "https://www.buzzfeed.com/celebrity", "https://bollywoodjournalist.com/",
 	"https://deadline.com/", "https://globalnews.ca/", "https://celebrity.nine.com.au/", "https://celebrityinsider.org/", "https://radaronline.com/",
 	"https://toofab.com/", "https://bossip.com/", "https://www.celebitchy.com", "http://www.wetpaint.com/", "https://www.ok.co.uk/", "http://extratv.com/",
-	"http://www.latina.com/", "http://vipmagazine.ie/"}
+	"http://www.latina.com/", "http://vipmagazine.ie/", "https://socialseeking.com/index.php", "https://www.pixnet.net/", "https://www.iconfinder.com/",
+	"https://www.tineye.com/", "https://www.picsearch.com/", "https://www.bing.com/", "https://www.ask.com/", "https://www.answers.com/",
+	"https://www.wolframalpha.com/", "https://www.quora.com/", "https://duckduckgo.com/", "https://www.qwant.com/", "https://www.startpage.com/",
+	"https://www.spokeo.com/", "https://hp.mywebsearch.com/mywebsearch/index.html", "http://www.teoma.com/", "http://infospace.com/",
+	"http://www.gigablast.com/", "http://www.baidu.com/", "https://www.naver.com/", "https://www.goo.ne.jp/", "https://www.rambler.ru/",
+	"https://www.seznam.cz/", "https://www.sapo.pt/", "https://www.virgilio.it/", "https://www.walla.co.il/", "http://search.dir.bg/indexwide.php",
+	"https://www.search.ch/", "http://www.najdi.si/", "https://www.searchnigeria.net/", "https://www.dasoertliche.de/", "https://www.meltwater.com/",
+	"https://web.stagram.com/search"}
