@@ -31,7 +31,6 @@ func IDFromString(id string) ID {
 type Proxy struct {
 	id           ID
 	url          *url.URL
-	https        bool
 	responseTime time.Duration
 	transParent  bool
 	alive        bool
@@ -82,11 +81,6 @@ func (h *Proxy) ResponseTime() time.Duration {
 // ToURL converts the proxy to a *url.URL
 func (h *Proxy) ToURL() *url.URL {
 	return h.url
-}
-
-// Secure identifies whether or not the proxy is https
-func (h *Proxy) HTTPS() bool {
-	return h.https
 }
 
 // AsCSV converts the proxy to csv format for saving to disk
@@ -168,11 +162,11 @@ func FromExisting(
 	host string,
 	username string,
 	password string,
-	https bool,
+	anon bool,
 	responseTime time.Duration,
 	alive bool) *Proxy {
 	uri := &url.URL{Host: host}
 	uri.User = url.UserPassword(username, password)
-	return &Proxy{id: IDFromString(id), url: uri, https: https, responseTime: responseTime, alive: alive}
+	return &Proxy{id: IDFromString(id), url: uri, transParent: anon, responseTime: responseTime, alive: alive}
 
 }
