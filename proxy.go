@@ -45,12 +45,18 @@ func (h *Proxy) Id() string {
 
 // Scheme returns the scheme used for the proxy, if it has been tested and is https, the scheme will be https
 func (h *Proxy) Scheme() string {
-	return h.url.Scheme
+	if h.url != nil {
+		return h.url.Scheme
+	}
+	return ""
 }
 
 // Host returns the host portion of the proxy as a string
 func (h *Proxy) Host() string {
-	return h.url.Host
+	if h.url != nil {
+		return h.url.Host
+	}
+	return ""
 }
 
 func (h *Proxy) IsAnon() bool {
@@ -59,13 +65,19 @@ func (h *Proxy) IsAnon() bool {
 
 // Username returns the username portion of the proxy if present
 func (h *Proxy) Username() string {
-	return h.url.User.String()
+	if h.url != nil {
+		return h.url.User.String()
+	}
+	return ""
 }
 
 // Password returns the password portion of the proxy if present
 func (h *Proxy) Password() string {
-	pass, _ := h.url.User.Password()
-	return pass
+	if h.url != nil {
+		pass, _ := h.url.User.Password()
+		return pass
+	}
+	return ""
 }
 
 // Alive returns whether or not the proxy is dead
