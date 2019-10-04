@@ -1,4 +1,4 @@
-module github.com/Gee5ive/groxy
+module github.com/G5Becks/groxy
 
 require (
 	github.com/gammazero/deque v0.0.0-20190130191400-2afb3858e9c7 // indirect
